@@ -1,0 +1,76 @@
+# Babysitter Presence Detection
+#
+# Prerequisites:
+#   1. Install the UniFi Network integration via HA Settings > Integrations
+#   2. In the integration config, enable "Track clients" and add the babysitter's
+#      device by MAC address under "Tracked clients"
+#   3. Find your device tracker entity ID: Developer Tools > States, filter by
+#      "device_tracker." — it will look like device_tracker.babysitters_iphone
+#   4. Replace BABYSITTER_DEVICE_TRACKER below with that entity ID
+#   5. Replace the automation entity IDs in each action with your real automation IDs
+#
+# To find automation entity IDs: Settings > Automations, click an automation,
+# the entity ID is shown at the bottom of the page.
+
+input_boolean:
+  babysitter_home:
+    name: Babysitter Home
+    icon: mdi:account-child
+
+automation:
+  - alias: "Babysitter Arrived"
+    description: >
+      Triggered when the babysitter's device connects to the UniFi network.
+      Enables automations appropriate for when a babysitter is present.
+    trigger:
+      - platform: state
+        entity_id: device_tracker.BABYSITTER_DEVICE_TRACKER  # <-- replace this
+        to: "home"
+    # Grace period: ignore brief disconnections (device must be gone for 5 min)
+    # This trigger has no grace period — arrival is detected immediately.
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.babysitter_home
+      # Enable automations that should run while babysitter is here
+      - service: automation.turn_on
+        target:
+          entity_id:
+            - automation.REPLACE_WITH_YOUR_AUTOMATION_ID  # e.g. automation.lock_medicine_cabinet
+      # Disable automations that should NOT run while babysitter is here
+      - service: automation.turn_off
+        target:
+          entity_id:
+            - automation.REPLACE_WITH_YOUR_AUTOMATION_ID  # e.g. automation.parent_bedtime_routine
+      - service: notify.notify
+        data:
+          title: "Babysitter Arrived"
+          message: "Babysitter's device detected on the network."
+
+  - alias: "Babysitter Left"
+    description: >
+      Triggered when the babysitter's device leaves the UniFi network.
+      Restores automations to their normal (no babysitter) state.
+    trigger:
+      - platform: state
+        entity_id: device_tracker.BABYSITTER_DEVICE_TRACKER  # <-- replace this
+        to: "not_home"
+        for:
+          minutes: 5  # Wait 5 min to avoid toggling on brief disconnections
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.babysitter_home
+      # Reverse of the arrival automation
+      - service: automation.turn_off
+        target:
+          entity_id:
+            - automation.REPLACE_WITH_YOUR_AUTOMATION_ID
+      - service: automation.turn_on
+        target:
+          entity_id:
+            - automation.REPLACE_WITH_YOUR_AUTOMATION_ID
+      - service: notify.notify
+        data:
+          title: "Babysitter Left"
+          message: "Babysitter's device is no longer on the network."
